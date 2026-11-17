@@ -15,7 +15,7 @@ SDK の著作権表示と MIT ライセンス全文を維持しています。
 
 ## 継承元
 
-- **SYNC_AquaFX**: Delphi プロジェクト、Win64 Debug / Release ビルド設定・ビルドイベント、DLL の公開関数、SDK 型定義、フィルターテーブル登録処理、作業規則の直接の継承元です。水面の描画処理とサンプル素材は含みません。`setup` フォルダーは内容を変更せずコピーしています。
+- **SYNC_AquaFX**: Delphi プロジェクト、Win64 Debug / Release ビルド設定・ビルドイベント、DLL の公開関数、SDK 型定義、フィルターテーブル登録処理、作業規則の直接の継承元です。水面の描画処理とサンプル素材は含みません。配布処理も継承し、WeatherFX用に変更しています。
 - **SYNC_ParticleFX**: SYNC_AquaFX の共通基盤と配布処理の継承元です。
 - **SYNC_Mine（SYNC_MINE）**: SYNC_ParticleFX のプロジェクト・SDK 定義・配布処理の継承元です。
 - **SYNC_PhotoShot**: Win64 のビルド設定・ビルドイベントの継承元です。

@@ -8,6 +8,16 @@
 - 現在は統合天気を既定にし、新規配置で「晴れ」を表示する。14種類の天気プリセットは「設定を反映」で現在の各値へ一括適用する。時刻・曇り具合・雨雪・風、太陽・月・虹、その他の現象を独立して調整できる。従来の44スタイルは個別演出モードに残す。
 - 現在の機能は `README.md`、仕様は `docs/SPECIFICATION.md` を参照する。AquaFX 固有の仕様と過去の検査記録は持ち込まない。
 
+## v1.0.0の配布準備（2026-11-18）
+
+- ユーザー依頼によりREADMEの「開発・検査」を削除し、インストール・更新とライセンスの案内を残した。setupをWeatherFX用に変更する許可を受けたため、従来のコピー状態の維持方針を更新した。
+- `setup/make_release_zip.bat`とPowerShellのパッケージ名・ロック名をWeatherFXへ統一した。ルートREADMEを同梱する方式にし、Sample画像のリンクはGitHub上の公開先へ変換する。setup/README.mdはZIP作成手順に変更した。
+- 公開カタログを `SYNC_WeatherFX.catalog.json` へ改名し、ID・名前「天気演出」・説明・タグ・GitHub参照・インストール先・削除対象を更新した。AquaFXの履歴を削除し、`v1.0.0`、公開日欄 `2026-11-18` の1件にした。実際の公開日が後日になる場合は更新する。
+- 本体の表示バージョンをv1.0.0へ合わせた。描画処理・初期値・SDK登録は変更していない。Win64 Debug/Release Rebuildは警告0・エラー0、本番AUF2を読み込む検査も両構成成功。82画像が両構成・v0.3.2の基準とも一致した。参照画像JSONのバージョン表示も1.0.0へ更新した。
+- Windows PowerShell 5.1を呼び出すバッチを実行し、ZIPの新規作成・既存ZIPの置換を検査した。同梱5ファイル、READMEの内容、AUF2のバイト列、JSONのXXH3-128、再実行時のJSON不変、一時ファイルの削除を確認した。
+- 配置先は `C:/ProgramData/aviutl2/Plugin/SYNC_WeatherFX/SYNC_WeatherFX.auf2`。SHA-256は `170EEE3F652FF66D06575AD859B551F8515F0BDEEA5AE520B497F1C9592A892E`、XXH3-128は `bd93bca0dfded1fb890223697da4c0ad`。作成済みZIPは `setup/SYNC_WeatherFX.zip`。
+- ビルド・検査ログと `ReleaseV1Images.json`、`PackagingVerification.json`、`ReleaseArtifact.json` を `Win64/LatestVerification` に保存した。ビルド中間ファイル・検査EXE・一時画像・取得用ZIPを整理した。バッチで必要なxxhsum.exeと公式配布物の取得元・検証ハッシュは残した。IDE・AviUtl2の操作、Gitタグ作成、ネットワーク公開は行っていない。
+
 ## 太陽に追従する朝夕の光（2026-11-17）
 
 - 内部検査版v0.3.2。6時・18時付近で太陽を画像下端の水平線へ近づけたとき、太陽X/Yを中心に白黄～橙の局所光を背景と雲へスクリーン合成する。位置固定だった下空の光を置き換え、背景色が太陽光へ溶け込む表現にした。高い位置・透明度100では減衰または無効になる。
@@ -69,7 +79,7 @@ cmd /c 'call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat" && 
 - `Source/Lib/AviUtl2FilterTypes.pas`: コピー元と同一の SDK 型・ABI 定義。
 - `Source/Lib/FilterTable/PluginFilterTable.pas`: コピー元と同一のフィルターテーブル・項目登録処理。
 - `ThirdParty/LICENSE.AviUtl2-SDK.txt` / `LICENSE`: コピー元と同一のライセンス全文。
-- `setup`: コピー元からそのままコピーした配布準備用ファイル。
+- `setup`: WeatherFX用のZIP作成バッチ・PowerShell・公開カタログJSON。手順は `setup/README.md`。
 
 ## コメント・分割・文字コード
 
@@ -87,10 +97,13 @@ cmd /c 'call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat" && 
 - コピー元の水面専用 Tests・Sample・Aup2・Thumnail、Win64 の生成物、IDE の個人設定・履歴、Git 履歴はコピーしていない。
 - コピー元プロジェクト、ユーザーの AUP2、他のプラグインは変更しない。
 
-## setup の扱い
+## setup の扱い（2026-11-18 更新）
 
-- ユーザー指定により `setup` フォルダーはファイル名・内容ともそのままコピーする。カタログ名 `SYNC_AquaFX.catalog.json`、スクリプト内の AquaFX 用パス・名前・ハッシュも維持する。
-- 現時点では WeatherFX の配布用には未整備。今回の作業で配布スクリプトを実行せず、ZIP やカタログも更新しない。WeatherFX 用への変更は後日の依頼で行う。
+- 2026-11-18のユーザー依頼で、コピーしたsetupをWeatherFX用へ変更した。カタログ名は `SYNC_WeatherFX.catalog.json`、ZIP名は `SYNC_WeatherFX.zip`。名前・ID・GitHub参照・配置先・削除対象はWeatherFXに統一する。
+- 初回の公開カタログは `v1.0.0` の1件から開始する。本体の表示バージョンも `v1.0.0`。内部版やAquaFXの公開履歴・ハッシュは転用しない。
+- ZIP作成バッチは既存のRelease AUF2だけを梱包し、そのバイト列のXXH3-128をJSONへ設定する。ビルドやアプリの起動・GitHubへの公開は行わない。公開日は実際の公開時に確認する。
+- 同梱READMEはルートREADMEから生成する。READMEの開発・検査項目は削除し、開発手順・検査記録はnote.mdとdocsへ保持する。画像・GIFはGitHubのSampleを参照する。
+- `xxhsum.exe`はxxHash公式v0.8.4のWindows版を `Win64/Dependencies/xxHash-0.8.4` へ配置するか、バッチの `-XxhsumPath` で指定する。取得元とSHA-256は同フォルダーの `download.json` に保存する。
 
 ## 2026-11-17 初期作成
 

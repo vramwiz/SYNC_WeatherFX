@@ -1,6 +1,14 @@
 # SYNC_WeatherFX（天気演出）
 
-AviUtl2用の統合型天気演出プラグインです。グループ名は `SYNC`、本体は `SYNC_WeatherFX.auf2` の1つです。Delphi 37.0 / Win64、AviUtl2 v2.1.16以降を対象とします。
+AviUtl2用の統合型天気演出プラグインです。グループ名は `SYNC`、本体は `SYNC_WeatherFX.auf2`、バージョンは **v1.0.0** です。Windows 64bit / AviUtl2 v2.1.16以降を対象とします。
+
+## インストール・更新
+
+1. AviUtl2を終了します。
+2. `SYNC_WeatherFX.zip`を展開し、中の`SYNC_WeatherFX`フォルダーをAviUtl2の`Plugin`フォルダーへコピーします。標準の配置先は`C:\ProgramData\aviutl2\Plugin\SYNC_WeatherFX`です。
+3. AviUtl2を起動し、「SYNC」グループの「天気演出」を追加します。
+
+更新時は同じ場所へ上書きします。本体と一緒にREADME・LICENSE・THIRD_PARTY_NOTICES.md・ThirdParty/LICENSE.AviUtl2-SDK.txtも配置してください。アンインストール時はAviUtl2を終了して、同梱の5ファイルを削除します。
 
 ## 統合天気（既定）
 
@@ -14,7 +22,7 @@ AviUtl2用の統合型天気演出プラグインです。グループ名は `SY
 
 ![天気プリセットの出力](Sample/weather_overview.png)
 
-1. フィルターオブジェクトとして「SYNC → 天気演出」を単体配置するか、画像・動画へ「天気演出」を追加します。単体配置は水面演出（AquaFX）と同じ方式です。
+1. フィルターオブジェクトとして「SYNC → 天気演出」を単体配置するか、画像・動画へ「天気演出」を追加します。
 2. 最上部の「天気プリセット」を選択し、**「設定を反映」**を押します。
 3. 各グループを開き、必要な項目を調整します。
 
@@ -55,6 +63,8 @@ AviUtl2用の統合型天気演出プラグインです。グループ名は `SY
 
 朝夕の「設定を反映」では、現在のシーン解像度に合わせて太陽を下端近くへ配置します。適用後は通常の太陽X/Yとして自由に編集でき、時刻を変えても太陽の位置を自動移動させません。解像度を変更した場合は再反映またはX/Yで調整できます。
 
+太陽と月は全円として描画します。地平線で太陽を隠したい場合は、後段のAviUtl2フィルターで切り抜きます。
+
 雷雨は太い雷線と全面発光を組み合わせます。「雷線の太さ」はピクセル単位で、0にすると線を描かなくなります。「雷の全面発光」は0～100で調整します。雷を80、線の太さを0、全面発光を75などにすると、画面全体が光るパターンになります。全面発光0では雷線だけになります。
 
 星空は星サイズ4、流れ星75、流れ星頻度12回/分が初期設定です。「流れ星」は表示の強さ、「流れ星頻度（回/分）」は0～120で発生頻度を調整します。頻度0で停止します。発生時刻と軌道はランダムに変わりますが、同じ時刻・シードでは同じ結果を再現します。
@@ -80,26 +90,10 @@ AviUtl2用の統合型天気演出プラグインです。グループ名は `SY
 
 旧版の項目名と選択値は維持しています。ただし、旧版で保存した個別演出には「描画方式」の保存値がないため、更新後は「個別演出」に切り替えて従来の保存値を使用してください。天気プリセットの反映は、個別演出の調整値を変更しません。
 
-## 開発・検査
-
-`SYNC_WeatherFX.dproj`を開きます。ビルド手順は [note.md](note.md)、仕様は [docs/SPECIFICATION.md](docs/SPECIFICATION.md)、実装の判断と範囲は [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) にあります。出力先は `C:\ProgramData\aviutl2\Plugin\SYNC_WeatherFX\` です。
-
-最新のビルド・検査記録は `Win64/LatestVerification`、画像の参照SHA-256は `Tests/Baselines/render_images.json` に保存しています。古いWin64内の試作画像・バックアップ・ビルドキャッシュは整理済みです。検査画像とEXEは下記のスクリプトで再生成できます。
-
-```powershell
-.\Tests\run_tests.ps1
-.\Tests\run_tests.ps1 -Benchmark
-.\Tests\run_tests.ps1 -Profile
-.\Tests\run_tests.ps1 -DefaultPreview
-.\Tests\run_tests.ps1 -CloudFlowPreview -ImageDirectory .\Win64\CloudFlow\Frames
-.\Tests\make_cloud_animation.ps1
-.\Tests\make_preview.ps1 -WeatherPresets
-```
-
-検査EXEは本番AUF2を読み込み、晴れの初期値、14プリセット、グループ、時刻周期、曇りと降水の独立性、風、天体配置、虹の透明度、屈折、逆シーク、雪・星のサイズ、雷の太さと全面発光、流れ星の頻度、白い霧の合成、従来44スタイルを検査します。`-Profile`は空・太陽・雲・雨・雪・霧・星を分けて1080pで計測し、画像出力先へ`profile1080.csv`を保存します。CPU計測はホストなしの参考値で、AviUtl2の実際の再生FPSではありません。
-
-実機での表示・操作、複数レイヤーでの負荷と見た目の採否は未確認です。SDKの標準グループと一括設定を使用しており、専用GUIは設けていません。太陽・月は全円を基準に描き、太陽の地平線クリッピングは後段のAviUtl2フィルターに任せます。
-
-`setup`は前回の指定どおり、SYNC_AquaFX用の名前と内容をそのまま保持しています。WeatherFXの配布処理としては未整備です。
+## ライセンス・ソース
 
 本体はGPL-3.0-only、SDK由来の定義はMITライセンスです。[LICENSE](LICENSE) と [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を同梱しています。
+
+Copyright (c) 2026 VRAMの魔術師
+
+配布・ソースの公開先: [vramwiz/SYNC_WeatherFX](https://github.com/vramwiz/SYNC_WeatherFX)

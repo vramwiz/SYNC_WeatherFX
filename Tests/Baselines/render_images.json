@@ -1,6 +1,6 @@
 {
   "Schema": 1,
-  "PluginVersion": "0.3.2",
+  "PluginVersion": "1.0.0",
   "Description": "Tests/run_tests.ps1で出力する画像の参照SHA-256。見た目を変更した際は画像を確認してから更新する。",
   "Images": [
     {

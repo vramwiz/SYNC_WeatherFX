@@ -120,7 +120,7 @@ begin
   begin
     // AquaFXと同じ単体フィルターとして登録する。メディア入力用フラグとは混在させない。
     SetupPluginTable(FILTER_FLAG_VIDEO or FILTER_FLAG_FILTER or FILTER_FLAG_USERDATA,
-      EFFECT_NAME, EFFECT_GROUP, '天気演出 / SYNC_WeatherFX v0.3.2',
+      EFFECT_NAME, EFFECT_GROUP, '天気演出 / SYNC_WeatherFX v1.0.0',
       WeatherFXProcVideo, nil);
     RegisterWeatherFXParameters;
     GetPluginTable^.Func_Create:=WeatherFXCreate;

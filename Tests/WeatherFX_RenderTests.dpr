@@ -756,6 +756,7 @@ begin
       Table:=GetTable(); Check(Table<>nil,'No table');
       Check(string(Table^.Name)='天気演出','Wrong plugin name');
       Check(string(Table^.Label_)='SYNC','Wrong group');
+      Check(string(Table^.Information)='天気演出 / SYNC_WeatherFX v1.0.0','Release version mismatch');
       Check(Table^.Flag=(FILTER_FLAG_VIDEO or FILTER_FLAG_FILTER or FILTER_FLAG_USERDATA),
         'Standalone filter registration flags mismatch');
       Check((Table^.Flag and FILTER_FLAG_INPUT)=0,'Filter registered as media input');
