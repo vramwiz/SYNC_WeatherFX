@@ -1,0 +1,160 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{16796F8B-F0CE-49C5-BD90-6DBCDD2DEB55}</ProjectGuid>
+        <ProjectVersion>20.4</ProjectVersion>
+        <FrameworkType>None</FrameworkType>
+        <Config Condition="'$(Config)'==''">Release</Config>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
+        <ProjectName Condition="'$(ProjectName)'==''">SYNC_WeatherFX</ProjectName>
+        <TargetedPlatforms>2</TargetedPlatforms>
+        <AppType>Library</AppType>
+        <MainSource>SYNC_WeatherFX.dpr</MainSource>
+        <Base>True</Base>
+        <ProjectDir>$(MSBuildProjectDirectory)</ProjectDir>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_1)'!=''">
+        <Cfg_1>true</Cfg_1>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+        <Cfg_1_Win64>true</Cfg_1_Win64>
+        <CfgParent>Cfg_1</CfgParent>
+        <Cfg_1>true</Cfg_1>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
+        <Cfg_2>true</Cfg_2>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win64)'!=''">
+        <Cfg_2_Win64>true</Cfg_2_Win64>
+        <CfgParent>Cfg_2</CfgParent>
+        <Cfg_2>true</Cfg_2>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
+        <GenDll>true</GenDll>
+        <DCC_ExeOutput>.\$(Platform)\$(Config)</DCC_ExeOutput>
+        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Winapi;Vcl;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UnitSearchPath>.\Source\Common;.\Source\Lib;.\Source\Lib\FilterTable;.\Source\Plugin\Filter;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <SanitizedProjectName>SYNC_WeatherFX</SanitizedProjectName>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_1)'!=''">
+        <DCC_DebugDCUs>true</DCC_DebugDCUs>
+        <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
+        <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
+        <DCC_DebugInformation>1</DCC_DebugInformation>
+        <DCC_RemoteDebug>true</DCC_RemoteDebug>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+        <DCC_RangeChecking>true</DCC_RangeChecking>
+        <DCC_LocalDebugSymbols>true</DCC_LocalDebugSymbols>
+        <BT_BuildType>Debug</BT_BuildType>
+        <DCC_Optimize>false</DCC_Optimize>
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
+        <PostBuildEvent><![CDATA[copy /Y "$(OUTPUTDIR)$(PROJECTNAME).dll" "$(OUTPUTDIR)$(PROJECTNAME).auf2" && del /Q "$(OUTPUTDIR)$(PROJECTNAME).dll"]]></PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+        <PostBuildEventExecuteWhen>Always</PostBuildEventExecuteWhen>
+        <DCC_DcuOutput>.\Win64\Debug\DCU</DCC_DcuOutput>
+        <DCC_ExeOutput>C:\ProgramData\aviutl2\Plugin\SYNC_WeatherFX\</DCC_ExeOutput>
+        <Debugger_HostApplication>D:\aviutl2_v2.1.16\aviutl2.exe</Debugger_HostApplication>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2)'!=''">
+        <DCC_Optimize>true</DCC_Optimize>
+        <BT_BuildType>Debug</BT_BuildType>
+        <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+        <DCC_DebugInformation>0</DCC_DebugInformation>
+        <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
+        <PostBuildEvent><![CDATA[copy /Y "$(OUTPUTDIR)$(PROJECTNAME).dll" "$(OUTPUTDIR)$(PROJECTNAME).auf2" && del /Q "$(OUTPUTDIR)$(PROJECTNAME).dll" && (if exist "$(OUTPUTDIR)$(PROJECTNAME).rsm" del /Q "$(OUTPUTDIR)$(PROJECTNAME).rsm")]]></PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+        <PostBuildEventExecuteWhen>Always</PostBuildEventExecuteWhen>
+        <DCC_DcuOutput>.\Win64\Release\DCU</DCC_DcuOutput>
+        <VerInfo_Locale>1041</VerInfo_Locale>
+        <Manifest_File>(なし)</Manifest_File>
+        <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
+        <DCC_ExeOutput>C:\ProgramData\aviutl2\Plugin\SYNC_WeatherFX\</DCC_ExeOutput>
+        <Debugger_HostApplication>D:\aviutl2_v2.1.16\aviutl2.exe</Debugger_HostApplication>
+    </PropertyGroup>
+    <ItemGroup>
+        <DelphiCompile Include="$(MainSource)">
+            <MainSource>MainSource</MainSource>
+        </DelphiCompile>
+        <DCCReference Include="Source\Lib\AviUtl2FilterTypes.pas"/>
+        <DCCReference Include="Source\Lib\FilterTable\PluginFilterTable.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Settings.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_SceneSettings.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Math.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Raster.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Celestial.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Cumulus.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Clouds.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Particles.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Atmosphere.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_SceneRenderer.pas"/>
+        <DCCReference Include="Source\Common\WeatherFX_Renderer.pas"/>
+        <DCCReference Include="Source\Plugin\Filter\WeatherFX_Parameters.pas"/>
+        <DCCReference Include="Source\Plugin\Filter\SYNC_WeatherFX_FilterPlugin.pas"/>
+        <BuildConfiguration Include="Base">
+            <Key>Base</Key>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Debug">
+            <Key>Cfg_1</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Release">
+            <Key>Cfg_2</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+        <Borland.ProjectType>Application</Borland.ProjectType>
+        <BorlandProject>
+            <Delphi.Personality>
+                <Source>
+                    <Source Name="MainSource">SYNC_WeatherFX.dpr</Source>
+                </Source>
+                <Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 オートメーション サーバー ラッパー コンポーネントのサンプル</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp370.bpl">Microsoft Office XP オートメーション サーバー ラッパー コンポーネントのサンプル</Excluded_Packages>
+                </Excluded_Packages>
+            </Delphi.Personality>
+            <Platforms>
+                <Platform value="Win32">False</Platform>
+                <Platform value="Win64">True</Platform>
+            </Platforms>
+        </BorlandProject>
+        <ProjectFileVersion>12</ProjectFileVersion>
+    </ProjectExtensions>
+    <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
+    <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+    <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
+    <PropertyGroup Condition="'$(Config)'=='Debug' And '$(Platform)'=='Win64'">
+        <PreBuildEvent/>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent>copy /Y &quot;$(OUTPUTDIR)$(PROJECTNAME).dll&quot; &quot;$(OUTPUTDIR)$(PROJECTNAME).auf2&quot; &amp;&amp; del /Q &quot;$(OUTPUTDIR)$(PROJECTNAME).dll&quot;</PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+        <PostBuildEventExecuteWhen>Always</PostBuildEventExecuteWhen>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win64'">
+        <PreBuildEvent/>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent>copy /Y &quot;$(OUTPUTDIR)$(PROJECTNAME).dll&quot; &quot;$(OUTPUTDIR)$(PROJECTNAME).auf2&quot; &amp;&amp; del /Q &quot;$(OUTPUTDIR)$(PROJECTNAME).dll&quot; &amp;&amp; (if exist &quot;$(OUTPUTDIR)$(PROJECTNAME).rsm&quot; del /Q &quot;$(OUTPUTDIR)$(PROJECTNAME).rsm&quot;)</PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+        <PostBuildEventExecuteWhen>Always</PostBuildEventExecuteWhen>
+    </PropertyGroup>
+</Project>
