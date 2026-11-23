@@ -60,11 +60,11 @@ begin FAtmosphere.Free; inherited end;
 procedure TWeatherSceneRenderer.Render(C: TWeatherRaster; Clouds: TWeatherCloudField;
   const Settings: TWeatherSceneSettings; Time: Double);
 var W: TWeatherSceneSettings; Track: TWeatherSceneTrack; S: TWeatherSettings;
-  H,O,SkyOvercast,CloudDarkening,Clarity,Day,Warm,Twilight,WindX,WindY,VX,VY,SunVisibility: Double;
+  H,O,SkyOvercast,CloudDarkening,Clarity,Day,Warm,Twilight,WindX,WindY,VX,VY,SunVisibility,SunStrength,ExtraSun: Double;
   Top,Horizon,Bottom,CloudColor,FogColor,Gray: TWeatherRGB;
   Cacheable,BaseCacheable,BaseHit: Boolean; Dest: TWeatherPixels;
 
-  procedure Style(Value: TWeatherStyle; Amount: Double; X: Double = 0; Y: Double = 0);
+  procedure BeginLayer(Value: TWeatherStyle; Amount: Double; X: Double = 0; Y: Double = 0);
   begin
     S:=WeatherPreset(Value); S.Values[wtSeed]:=W.Seed;
     C.SetLayer(Amount/100,X,Y);
@@ -96,7 +96,9 @@ begin
   Day:=Smooth(5,8,H)*(1-Smooth(17,21,H));
   Warm:=Max(Exp(-Sqr((H-6.5)/1.5)),Exp(-Sqr((H-18)/1.5)));
   Twilight:=Max(1-Smooth(0.25,1.25,Abs(H-6)),1-Smooth(0.25,1.25,Abs(H-18)));
-  SunVisibility:=1-W.Values[stSunTransparency]/100;
+  SunStrength:=W.Values[stSunStrength]/100;
+  SunVisibility:=(1-W.Values[stSunTransparency]/100)*Min(1,SunStrength);
+  ExtraSun:=Max(0,SunStrength-1);
   WindX:=W.Values[stWindSpeed]*4*Cos(DegToRad(Wrap(W.Values[stWindDirection],360)));
   WindY:=W.Values[stWindSpeed]*4*Sin(DegToRad(Wrap(W.Values[stWindDirection],360)));
   HourPalette(H,Top,Horizon,Bottom);
@@ -125,32 +127,33 @@ begin
   end;
   if W.Values[stStars]>0 then
   begin
-    Style(wsTwinklingStars,W.Values[stStars]); S.Values[wtAmount]:=230;
+    BeginLayer(wsTwinklingStars,W.Values[stStars]); S.Values[wtAmount]:=230;
     S.Values[wtSize]:=W.Values[stStarSize];
     RenderWeatherParticles(C,S,Time,True);
   end;
   FAtmosphere.Aurora(C,W.Values[stAurora],Time,W.Seed);
   if (SunVisibility>0) and (W.Values[stSunSize]>0) then
   begin
-    Style(wsSun,SunVisibility*100*Mix(1,0.08,SkyOvercast),W.Values[stSunX],W.Values[stSunY]);
+    BeginLayer(wsSun,SunVisibility*100*Mix(1,0.08,SkyOvercast),W.Values[stSunX],W.Values[stSunY]);
     S.Values[wtSize]:=W.Values[stSunSize];
-    // 統合型の太陽の状態は「時刻」で制御し、表面模様は固定する。
-    S.Values[wtSpeed]:=0;
-    S.Values[wtGlow]:=100; S.Values[wtBrightness]:=Mix(145,115,Twilight); S.Values[wtBlur]:=0.6;
+    // 100%までは不透明度を調整し、100%を超えると中心と周辺光をさらに強める。
+    S.Values[wtGlow]:=100+ExtraSun*65;
+    S.Values[wtBrightness]:=Mix(145,115,Twilight)*(1+ExtraSun*0.18);
+    S.Values[wtBlur]:=0.6;
     S.ColorRGB:=ColorCode(RGBMix(RGB($FFF1CD),RGB($FF9657),Max(Warm,1-Day)*0.9));
     S.ColorRGB:=ColorCode(RGBMix(RGB(S.ColorRGB),RGB($FFAD4F),Twilight*0.65));
     RenderSunLight(C,S,Time);
   end;
   if (W.Values[stMoonTransparency]<100) and (W.Values[stMoonSize]>0) then
   begin
-    Style(wsFullMoon,100-W.Values[stMoonTransparency],W.Values[stMoonX],W.Values[stMoonY]);
+    BeginLayer(wsFullMoon,100-W.Values[stMoonTransparency],W.Values[stMoonX],W.Values[stMoonY]);
     S.Values[wtSize]:=W.Values[stMoonSize]; S.Values[wtShape]:=W.Values[stMoonPhase];
     S.Values[wtAngle]:=W.Values[stMoonDirection]; RenderCelestial(C,S,Time);
   end;
   if (W.Values[stRainbowTransparency]<100) and (W.Values[stRainbowRadius]>0) and
     (W.Values[stRainbowArc]>0) and (W.Values[stRainbowWidth]>0) then
   begin
-    Style(wsRainbow,100-W.Values[stRainbowTransparency],W.Values[stRainbowX],W.Values[stRainbowY]);
+    BeginLayer(wsRainbow,100-W.Values[stRainbowTransparency],W.Values[stRainbowX],W.Values[stRainbowY]);
     S.Values[wtSize]:=W.Values[stRainbowRadius];
     if W.DoubleRainbow then S.Values[wtAmount]:=2;
     RenderRainbowLayer(C,S,W.Values[stRainbowWidth],W.Values[stRainbowArc],True);
@@ -168,7 +171,7 @@ begin
   CloudColor:=RGBMix(CloudColor,RGB($FFD08C),Twilight*0.5*(1-CloudDarkening));
   if O>0 then
   begin
-    Style(wsWhiteCloud,Mix(96,99,O)); S.ColorRGB:=ColorCode(CloudColor);
+    BeginLayer(wsWhiteCloud,Mix(96,99,O)); S.ColorRGB:=ColorCode(CloudColor);
     S.Values[wtDensity]:=W.Values[stOvercast]; S.Values[wtSize]:=Max(C.Width,C.Height)*0.8;
     S.Values[wtSpeed]:=W.Values[stWindSpeed]*1.6; S.Values[wtAngle]:=Wrap(W.Values[stWindDirection],360);
     Clouds.Render(C,S,Time,True);
@@ -178,17 +181,17 @@ begin
       W.Values[stSunSize],Twilight*SunVisibility*Mix(1,0.08,SkyOvercast));
   if W.Values[stSunlight]>0 then
   begin
-    Style(wsSunlight,W.Values[stSunlight]*Mix(1,0.05,O),W.Values[stSunX],W.Values[stSunY]);
+    BeginLayer(wsSunlight,W.Values[stSunlight]*Mix(1,0.05,O),W.Values[stSunX],W.Values[stSunY]);
     S.ColorRGB:=ColorCode(RGBMix(RGB($FFF1CD),RGB($FFB887),Warm)); RenderCelestial(C,S,Time);
   end;
   if W.Values[stMoonlight]>0 then
   begin
-    Style(wsMoonlight,W.Values[stMoonlight],W.Values[stMoonX],W.Values[stMoonY]);
+    BeginLayer(wsMoonlight,W.Values[stMoonlight],W.Values[stMoonX],W.Values[stMoonY]);
     RenderCelestial(C,S,Time);
   end;
   if (W.Values[stMeteors]>0) and (W.Values[stMeteorFrequency]>0) then
   begin
-    Style(wsMeteor,W.Values[stMeteors]);
+    BeginLayer(wsMeteor,W.Values[stMeteors]);
     RenderMeteorShower(C,S,Time,W.Values[stMeteorFrequency]);
   end;
   FAtmosphere.Lightning(C,W.Values[stLightning],W.Values[stLightningWidth],W.Values[stLightningFlash],Time,W.Seed);
@@ -196,7 +199,7 @@ begin
   FAtmosphere.Fog(C,W.Values[stFog],WindX*0.12,WindY*0.12,Time,W.Seed,FogColor);
   if (W.Values[stRain]>0) and (W.Values[stRainSize]>0) then
   begin
-    Style(wsRain,65); S.Values[wtAmount]:=W.Values[stRain]*8.5;
+    BeginLayer(wsRain,65); S.Values[wtAmount]:=W.Values[stRain]*8.5;
     S.Values[wtSize]:=W.Values[stRainSize]; S.Values[wtSpread]:=30+W.Values[stRain]*0.5;
     VX:=WindX; VY:=600*W.Values[stFallSpeed]/100+WindY*0.3;
     S.Values[wtSpeed]:=Min(2000,Hypot(VX,VY)); S.Values[wtAngle]:=RadToDeg(ArcTan2(VY,VX));
@@ -204,7 +207,7 @@ begin
   end;
   if (W.Values[stSnow]>0) and (W.Values[stSnowSize]>0) then
   begin
-    Style(wsSnow,95); S.Values[wtAmount]:=W.Values[stSnow]*5.5;
+    BeginLayer(wsSnow,95); S.Values[wtAmount]:=W.Values[stSnow]*5.5;
     S.Values[wtSize]:=W.Values[stSnowSize]; VX:=WindX; VY:=65*W.Values[stFallSpeed]/100+WindY*0.15;
     S.Values[wtSpeed]:=Min(2000,Hypot(VX,VY)); S.Values[wtAngle]:=RadToDeg(ArcTan2(VY,VX));
     RenderWeatherParticles(C,S,Time,True);

@@ -7,14 +7,13 @@
 interface
 
 type
-  TWeatherRenderMode = (wmIntegrated, wmIndividual);
   TWeatherScenePreset = (wpSunny, wpClear, wpThinCloud, wpCloudy, wpRain,
     wpDownpour, wpSnow, wpBlizzard, wpThunderstorm, wpDawn, wpSunset,
-    wpNight, wpStarry, wpFog);
+    wpNight, wpStarry, wpFog, wpRainbow, wpAurora, wpMidsummer);
   TWeatherSceneTrack = (stHour, stOvercast,
     stRain, stSnow, stRainSize, stSnowSize, stFallSpeed,
     stWindSpeed, stWindDirection, stWindExpression,
-    stSunX, stSunY, stSunSize, stSunTransparency,
+    stSunX, stSunY, stSunSize, stSunTransparency, stSunStrength,
     stMoonX, stMoonY, stMoonSize, stMoonTransparency, stMoonPhase, stMoonDirection,
     stRainbowX, stRainbowY, stRainbowRadius, stRainbowArc, stRainbowWidth, stRainbowTransparency,
     stLightning, stLightningWidth, stLightningFlash, stFog, stAurora, stHeatHaze, stMirage,
@@ -34,7 +33,7 @@ const
   WEATHER_SCENE_PRESET_COUNT = Ord(High(TWeatherScenePreset))+1;
   WEATHER_SCENE_NAMES: array[TWeatherScenePreset] of PWideChar = (
     '晴れ', '快晴', '薄曇り', '曇り', '雨', '豪雨', '雪', '吹雪',
-    '雷雨', '朝焼け', '夕焼け', '夜', '星空', '霧');
+    '雷雨', '朝焼け', '夕焼け', '夜', '星空', '霧', '虹', 'オーロラ', '真夏');
   WEATHER_SCENE_TRACKS: array[TWeatherSceneTrack] of TSceneTrackDefinition = (
     (Name:'時刻'; MinValue:0; MaxValue:240; Step:0.01),
     (Name:'曇り具合'; MinValue:0; MaxValue:100; Step:0.1),
@@ -50,6 +49,7 @@ const
     (Name:'太陽Y'; MinValue:-100000; MaxValue:100000; Step:0.01),
     (Name:'太陽サイズ'; MinValue:0; MaxValue:20000; Step:0.1),
     (Name:'太陽透明度'; MinValue:0; MaxValue:100; Step:0.1),
+    (Name:'太陽の強さ'; MinValue:0; MaxValue:200; Step:0.1),
     (Name:'月X'; MinValue:-100000; MaxValue:100000; Step:0.01),
     (Name:'月Y'; MinValue:-100000; MaxValue:100000; Step:0.01),
     (Name:'月サイズ'; MinValue:0; MaxValue:20000; Step:0.1),
@@ -93,11 +93,14 @@ end;
 
 function WeatherScenePreset(Preset: TWeatherScenePreset; SceneWidth,SceneHeight: Integer): TWeatherSceneSettings;
 begin
+  SceneWidth:=EnsureRange(SceneWidth,1,8192);
+  SceneHeight:=EnsureRange(SceneHeight,1,8192);
   Result:=Default(TWeatherSceneSettings);
   Result.DrawSky:=True; Result.Seed:=1;
   Result.Values[stHour]:=12; Result.Values[stOvercast]:=20;
   Result.Values[stRainSize]:=1.4; Result.Values[stSnowSize]:=5;
   Result.Values[stFallSpeed]:=100;
+  Result.Values[stSunStrength]:=100;
   Result.Values[stSunX]:=-250; Result.Values[stSunY]:=-140; Result.Values[stSunSize]:=100;
   Result.Values[stMoonX]:=240; Result.Values[stMoonY]:=-140; Result.Values[stMoonSize]:=110;
   Result.Values[stMoonTransparency]:=100; Result.Values[stMoonPhase]:=100;
@@ -151,10 +154,40 @@ begin
     wpFog: begin Result.Values[stHour]:=12; Result.Values[stOvercast]:=0;
       Result.Values[stFog]:=85; Result.Values[stSunTransparency]:=100;
       Result.Values[stWindSpeed]:=5 end;
+    wpRainbow:
+      begin
+        Result.Values[stHour]:=15;
+        Result.Values[stOvercast]:=13;
+        Result.Values[stSunTransparency]:=100;
+        // 虹の頂点と両側が、縦長・横長のどちらでも画面に収まるようにする。
+        Result.Values[stRainbowRadius]:=Min(SceneWidth*0.43,SceneHeight*0.75);
+        Result.Values[stRainbowY]:=Result.Values[stRainbowRadius]-SceneHeight*0.42;
+        Result.Values[stRainbowWidth]:=Max(1,Result.Values[stRainbowRadius]*0.055);
+        Result.Values[stRainbowTransparency]:=0;
+      end;
+    wpAurora:
+      begin
+        Result.Values[stHour]:=0;
+        Result.Values[stOvercast]:=0;
+        Result.Values[stSunTransparency]:=100;
+        Result.Values[stAurora]:=100;
+        Result.Values[stStars]:=55;
+      end;
+    wpMidsummer:
+      begin
+        Result.Values[stHour]:=13;
+        Result.Values[stOvercast]:=30;
+        Result.Values[stWindSpeed]:=8;
+        Result.Values[stSunX]:=SceneWidth*0.18;
+        Result.Values[stSunY]:=-SceneHeight*0.35;
+        Result.Values[stSunSize]:=Min(SceneWidth,SceneHeight)*0.16;
+        Result.Values[stSunStrength]:=175;
+        Result.Values[stHeatHaze]:=60;
+        Result.Values[stMirage]:=18;
+      end;
   end;
   if Preset in [wpDawn,wpSunset] then
   begin
-    SceneWidth:=EnsureRange(SceneWidth,1,8192); SceneHeight:=EnsureRange(SceneHeight,1,8192);
     // 反映時に下端の少し上へ配置する。保存後は通常のX/Yトラックとして自由に編集できる。
     Result.Values[stSunX]:=-SceneWidth*0.24;
     Result.Values[stSunY]:=SceneHeight*0.48-Result.Values[stSunSize]/2;

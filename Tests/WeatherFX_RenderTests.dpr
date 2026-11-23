@@ -10,7 +10,6 @@
 uses System.SysUtils, System.Classes, System.Math, System.Diagnostics,
   Winapi.Windows, Vcl.Imaging.pngimage,
   AviUtl2FilterTypes in '..\Source\Lib\AviUtl2FilterTypes.pas',
-  WeatherFX_Settings in '..\Source\Common\WeatherFX_Settings.pas',
   WeatherFX_SceneSettings in '..\Source\Common\WeatherFX_SceneSettings.pas';
 
 type
@@ -21,17 +20,12 @@ type
   TPixels = array of TPIXEL_RGBA;
   PItem = ^TItem;
   TItem = record ItemType,Name: PWideChar end;
-  TStyleOptions = array[0..WEATHER_STYLE_COUNT] of TFILTER_ITEM_SELECT_ITEM;
-  PStyleOptions = ^TStyleOptions;
+  TPresetOptions = array[0..WEATHER_SCENE_PRESET_COUNT] of TFILTER_ITEM_SELECT_ITEM;
+  PPresetOptions = ^TPresetOptions;
 
 var
   Table: PFILTER_PLUGIN_TABLE;
-  StyleItem: PFILTER_ITEM_SELECT;
-  ApplyButton: PFILTER_ITEM_BUTTON;
-  Tracks: array[TWeatherTrack] of PFILTER_ITEM_TRACK;
-  ColorItem: PFILTER_ITEM_COLOR;
-  CustomColor: PFILTER_ITEM_CHECK;
-  RenderModeItem: PFILTER_ITEM_SELECT;
+  SeedTrack: PFILTER_ITEM_TRACK;
   WeatherPresetItem: PFILTER_ITEM_SELECT;
   WeatherApplyButton: PFILTER_ITEM_BUTTON;
   SceneTracks: array[TWeatherSceneTrack] of PFILTER_ITEM_TRACK;
@@ -70,7 +64,7 @@ begin
 end;
 
 function SetItemValue(Handle: OBJECT_HANDLE; Effect,ItemName: PWideChar; Value: PAnsiChar): Boolean; cdecl;
-var Track: TWeatherTrack; SceneTrack: TWeatherSceneTrack; Text: string; Code: Cardinal;
+var SceneTrack: TWeatherSceneTrack; Text: string;
 begin
   Result:=False;
   EditTargetCorrect:=EditTargetCorrect and (Handle=Pointer(1234)) and (string(Effect)='天気演出:2');
@@ -78,38 +72,9 @@ begin
   for SceneTrack:=Low(TWeatherSceneTrack) to High(TWeatherSceneTrack) do
     if string(SceneTracks[SceneTrack]^.Name)=string(ItemName) then
     begin SceneTracks[SceneTrack]^.Value:=StrToFloat(Text,TFormatSettings.Invariant); Result:=True; Break end;
-  for Track:=Low(TWeatherTrack) to High(TWeatherTrack) do
-    if string(Tracks[Track]^.Name)=string(ItemName) then
-    begin Tracks[Track]^.Value:=StrToFloat(Text,TFormatSettings.Invariant); Result:=True; Break end;
-  if string(ItemName)='色' then
-  begin
-    Code:=StrToInt('$'+Text); ColorItem^.R:=(Code shr 16) and 255;
-    ColorItem^.G:=(Code shr 8) and 255; ColorItem^.B:=Code and 255; Result:=True;
-  end;
-  if string(ItemName)='色を指定' then begin CustomColor^.Value:=StrToInt(Text); Result:=True end;
   if string(ItemName)='空を描画' then begin DrawSkyItem^.Value:=StrToInt(Text); Result:=True end;
   if string(ItemName)='二重虹' then begin DoubleRainbowItem^.Value:=StrToInt(Text); Result:=True end;
-  if string(ItemName)='描画方式' then
-  begin
-    if Text='個別演出' then RenderModeItem^.Value:=Ord(wmIndividual)
-    else if Text='統合天気' then RenderModeItem^.Value:=Ord(wmIntegrated)
-    else Exit;
-    Result:=True;
-  end;
   if Result then Inc(EditCount);
-end;
-
-procedure Configure(Style: TWeatherStyle);
-var Before: Integer; Track: TWeatherTrack; Preset: TWeatherSettings;
-begin
-  StyleItem^.Value:=Ord(Style); Before:=EditCount;
-  ApplyButton^.Callback2(@Edit,Pointer(1234),'天気演出:2','設定');
-  Check(EditTargetCorrect,'Preset targeted another instance');
-  Check(EditCount-Before=17,'Incomplete preset application');
-  Preset:=WeatherPreset(Style);
-  for Track:=Low(TWeatherTrack) to High(TWeatherTrack) do
-    if Track<>wtSeed then Check(Abs(Tracks[Track]^.Value-Preset.Values[Track])<1E-8,'Preset value mismatch');
-  Check(Tracks[wtSeed]^.Value=17,'Preset overwrote seed');
 end;
 
 function Render(Time: Double): TPixels;
@@ -144,16 +109,17 @@ begin
 end;
 
 procedure BindItems;
-var I,N,GroupCount: Integer; Track: TWeatherTrack; SceneTrack: TWeatherSceneTrack;
+var N,GroupCount,SelectCount,ButtonCount: Integer; Preset: TWeatherScenePreset; SceneTrack: TWeatherSceneTrack;
   P: PItem; ItemPointer: PPointer;
 begin
-  ItemPointer:=PPointer(Table^.Items); N:=0; GroupCount:=0;
+  ItemPointer:=PPointer(Table^.Items); N:=0; GroupCount:=0; SelectCount:=0; ButtonCount:=0;
   Check(string(PItem(ItemPointer^)^.Name)='天気プリセット','Weather preset is not at top');
   while ItemPointer^<>nil do
   begin
     Inc(N); Check(N<100,'Unterminated items'); P:=PItem(ItemPointer^);
-    if string(P^.Name)='スタイル' then StyleItem:=PFILTER_ITEM_SELECT(P);
-    if string(P^.Name)='描画方式' then RenderModeItem:=PFILTER_ITEM_SELECT(P);
+    if string(P^.ItemType)='select' then Inc(SelectCount);
+    if string(P^.ItemType)='button' then Inc(ButtonCount);
+    if string(P^.Name)='シード' then SeedTrack:=PFILTER_ITEM_TRACK(P);
     if string(P^.Name)='天気プリセット' then WeatherPresetItem:=PFILTER_ITEM_SELECT(P);
     if string(P^.Name)='設定を反映' then WeatherApplyButton:=PFILTER_ITEM_BUTTON(P);
     if string(P^.Name)='空を描画' then DrawSkyItem:=PFILTER_ITEM_CHECK(P);
@@ -164,29 +130,22 @@ begin
       if string(P^.Name)='基本設定' then Check(PFILTER_ITEM_GROUP(P)^.DefaultVisible=1,'Basic settings are collapsed')
       else Check(PFILTER_ITEM_GROUP(P)^.DefaultVisible=0,'Detailed settings are not collapsed');
     end;
-    if string(P^.Name)='設定' then ApplyButton:=PFILTER_ITEM_BUTTON(P);
-    if string(P^.Name)='色' then ColorItem:=PFILTER_ITEM_COLOR(P);
-    if string(P^.Name)='色を指定' then CustomColor:=PFILTER_ITEM_CHECK(P);
-    for Track:=Low(TWeatherTrack) to High(TWeatherTrack) do
-      if string(P^.Name)=string(WEATHER_TRACKS[Track].Name) then Tracks[Track]:=PFILTER_ITEM_TRACK(P);
     for SceneTrack:=Low(TWeatherSceneTrack) to High(TWeatherSceneTrack) do
       if string(P^.Name)=string(WEATHER_SCENE_TRACKS[SceneTrack].Name) then SceneTracks[SceneTrack]:=PFILTER_ITEM_TRACK(P);
     Inc(ItemPointer);
   end;
-  Check(N=79,'Unexpected item count');
-  Check(GroupCount=16,'Missing foldable groups');
+  Check(N=59,'Unexpected item count');
+  Check(GroupCount=14,'Missing foldable groups');
+  Check((SelectCount=1) and (ButtonCount=1),'More than one preset control pair is registered');
   Check((WeatherPresetItem<>nil) and (WeatherApplyButton<>nil) and (DrawSkyItem<>nil) and
-    (DoubleRainbowItem<>nil) and (RenderModeItem<>nil),'Missing integrated UI item');
+    (DoubleRainbowItem<>nil) and (SeedTrack<>nil),'Missing weather UI item');
   for SceneTrack:=Low(TWeatherSceneTrack) to High(TWeatherSceneTrack) do
     Check(SceneTracks[SceneTrack]<>nil,'Missing scene track');
-  for I:=0 to WEATHER_SCENE_PRESET_COUNT-1 do
-    Check(PStyleOptions(WeatherPresetItem^.List)^[I].Name<>nil,'Missing weather preset option');
-  Check(PStyleOptions(WeatherPresetItem^.List)^[WEATHER_SCENE_PRESET_COUNT].Name=nil,'Unterminated weather presets');
-  Check((StyleItem<>nil) and (ApplyButton<>nil) and (ColorItem<>nil) and (CustomColor<>nil),'Missing UI item');
-  for Track:=Low(TWeatherTrack) to High(TWeatherTrack) do Check(Tracks[Track]<>nil,'Missing track');
-  for I:=0 to WEATHER_STYLE_COUNT-1 do
-    Check(PStyleOptions(StyleItem^.List)^[I].Name<>nil,'Missing style option');
-  Check(PStyleOptions(StyleItem^.List)^[WEATHER_STYLE_COUNT].Name=nil,'Unterminated styles');
+  for Preset:=Low(TWeatherScenePreset) to High(TWeatherScenePreset) do
+    with PPresetOptions(WeatherPresetItem^.List)^[Ord(Preset)] do
+      Check((string(Name)=string(WEATHER_SCENE_NAMES[Preset])) and (Value=Ord(Preset)),
+        'Weather preset name or saved value mismatch');
+  Check(PPresetOptions(WeatherPresetItem^.List)^[WEATHER_SCENE_PRESET_COUNT].Name=nil,'Unterminated weather presets');
 end;
 
 procedure ConfigureWeather(Preset: TWeatherScenePreset);
@@ -197,12 +156,13 @@ begin
   Edit.Info:=@EditInfo;
   WeatherApplyButton^.Callback2(@Edit,Pointer(1234),'天気演出:2','設定を反映');
   Check(EditTargetCorrect,'Weather preset targeted another instance');
-  Check(EditCount-Before=42,'Incomplete weather preset');
+  Check(EditCount-Before=Ord(High(TWeatherSceneTrack))+3,'Incomplete weather preset');
   Expected:=WeatherScenePreset(Preset,Scene.Width,Scene.Height);
   for Track:=Low(TWeatherSceneTrack) to High(TWeatherSceneTrack) do
     Check(Abs(SceneTracks[Track]^.Value-Expected.Values[Track])<1E-8,'Wrong weather preset value');
-  Check(Tracks[wtSeed]^.Value=17,'Weather preset reset seed');
-  Check(RenderModeItem^.Value=Ord(wmIntegrated),'Weather preset did not enable integrated mode');
+  Check(DrawSkyItem^.Value=Byte(Expected.DrawSky),'Wrong saved sky setting');
+  Check(DoubleRainbowItem^.Value=Byte(Expected.DoubleRainbow),'Wrong saved double rainbow setting');
+  Check(SeedTrack^.Value=17,'Weather preset reset seed');
 end;
 
 procedure IsolateWeather;
@@ -246,7 +206,6 @@ var Track: TWeatherSceneTrack; Preset: TWeatherScenePreset; Defaults: TWeatherSc
   CSV: TStringList;
 begin
   Defaults:=WeatherScenePreset(wpSunny);
-  Check(RenderModeItem^.Value=Ord(wmIntegrated),'New object is not integrated');
   Check(WeatherPresetItem^.Value=Ord(wpSunny),'New object preset is not sunny');
   for Track:=Low(TWeatherSceneTrack) to High(TWeatherSceneTrack) do
     Check(SceneTracks[Track]^.Value=Defaults.Values[Track],'New object has wrong sunny default');
@@ -258,15 +217,12 @@ begin
     (SceneTracks[stWindExpression]^.Value=0),'Sunny default wind was lost');
   A:=Render(1.25); SavePNG(A,'new_sunny.png');
   B:=Render(2.25); Check(not Same(A,B),'Default clouds do not move with timeline time');
-  Tracks[wtSeed]^.Value:=17;
+  SeedTrack^.Value:=17;
   A:=Render(1.25); Check(Coverage(A)=Scene.Width*Scene.Height,'Default sky is not generated');
   WeatherPresetItem^.Value:=Ord(wpDownpour); B:=Render(1.25);
   Check(Same(A,B),'Selecting a weather preset changed the picture');
   Check(SceneTracks[stRain]^.Value=0,'Selecting a preset changed rainfall');
   ConfigureWeather(wpClear); SceneTracks[stSunTransparency]^.Value:=100;
-  A:=Render(1.25); Configure(wsBlueSky); B:=Render(1.25);
-  Check(Same(A,B),'Noon clear sky differs from original blue sky');
-  RenderModeItem^.Value:=Ord(wmIntegrated);
   SceneTracks[stHour]^.Value:=0; A:=Render(1.25);
   for I:=1 to 10 do begin SceneTracks[stHour]^.Value:=I*24; B:=Render(1.25);
     Check(Same(A,B),'24-hour wrap changed the sky') end;
@@ -363,7 +319,12 @@ begin
       ConfigureWeather(Preset); T:=1.25; if Preset=wpThunderstorm then T:=LightningTime;
       if Preset=wpStarry then T:=MeteorTime;
       A:=Render(T); SavePNG(A,Format('weather_%.2d.png',[Ord(Preset)]));
-      B:=Render(T+0.5); D:=Render(T); Check(Same(A,D),'Integrated reverse seek failed');
+      B:=Render(T+0.5); D:=Render(T);
+      Check(Same(A,D),'Reverse seek changed weather: '+string(WEATHER_SCENE_NAMES[Preset]));
+      Obj.FrameTotal:=9999;
+      B:=Render(T);
+      Obj.FrameTotal:=150;
+      Check(Same(A,B),'Object duration changed weather: '+string(WEATHER_SCENE_NAMES[Preset]));
       CSV.Add(Format('%d,%s,%.2f',[Ord(Preset),string(WEATHER_SCENE_NAMES[Preset]),T],TFormatSettings.Invariant));
     end;
     CSV.SaveToFile(ImageDirectory+'weather_presets.csv',TEncoding.UTF8);
@@ -372,7 +333,7 @@ begin
   A:=Render(1.25); WeatherPresetItem^.Value:=Ord(wpSunny); B:=Render(1.25);
   Check(Same(A,B),'Preset selection reset user edits');
   Check((SceneTracks[stRain]^.Value=23.4) and (SceneTracks[stHour]^.Value=16.3),'Rendering reset scene values');
-  Writeln('PASS: sunny defaults, 14 weather presets, groups, original blue sky, 24-hour cycle, continuity, cloudiness, precipitation, wind, independent bodies, opaque/faint rainbow, atmosphere, filters');
+  Writeln('PASS: sunny defaults, 17 weather presets, groups, 24-hour cycle, continuity, cloudiness, precipitation, wind, independent bodies, opaque/faint rainbow, atmosphere, filters');
 end;
 
 procedure RunCloudFlowTests;
@@ -560,77 +521,119 @@ begin
   for I:=0 to 59 do SavePNG(Render(I*0.2),Format('flow_%.3d.png',[I]));
 end;
 
-procedure RunTests;
-var Style: TWeatherStyle; A,B,D: TPixels; CSV: TStringList; Watch: TStopwatch;
-  I,J,N,FullArea,HalfArea,ThinArea,Before: Integer; T: Double; OtherSession,MainSession: Pointer;
+procedure RunNewPresetTests;
+var A,B,Unrefracted: TPixels; Radius,CenterY: Double;
 begin
-  Tracks[wtSeed]^.Value:=17;
-  CSV:=TStringList.Create;
-  try
-    CSV.Add('style,name,time,render_ms,visible_pixels');
-    for Style:=Low(TWeatherStyle) to High(TWeatherStyle) do
-    begin
-      Configure(Style); T:=1.25;
-      Watch:=TStopwatch.StartNew; A:=Render(T); Watch.Stop;
-      if Style=wsMeteor then
-        for J:=1 to 40 do
-        begin
-          if Coverage(A)>0 then Break;
-          T:=J*0.1; A:=Render(T);
-        end;
-      N:=Coverage(A); Check(N>0,'Empty preset: '+string(WEATHER_STYLE_NAMES[Style]));
-      SavePNG(A,Format('%.2d.png',[Ord(Style)]));
-      CSV.Add(Format('%d,%s,%.2f,%.3f,%d',[Ord(Style),string(WEATHER_STYLE_NAMES[Style]),T,Watch.Elapsed.TotalMilliseconds,N],TFormatSettings.Invariant));
-      D:=Render(T+0.65); B:=Render(T);
-      Check(Same(A,B),'Reverse seek changed preset: '+string(WEATHER_STYLE_NAMES[Style]));
-      if Style in [wsTwinklingStars,wsWhiteCloud,wsRain,wsSnow] then
-        Check(not Same(A,D),'Animation is static');
-      Obj.FrameTotal:=9999; B:=Render(T); Obj.FrameTotal:=150;
-      Check(Same(A,B),'Duration changed motion');
-    end;
-    CSV.SaveToFile(ImageDirectory+'presets.csv',TEncoding.UTF8);
-  finally CSV.Free end;
-  Configure(wsFullMoon); A:=Render(0); FullArea:=Coverage(A);
-  Configure(wsHalfMoon); A:=Render(0); HalfArea:=Coverage(A);
-  Configure(wsThinCrescent); A:=Render(0); ThinArea:=Coverage(A);
-  Check((FullArea>HalfArea) and (HalfArea>ThinArea),'Moon phases have wrong coverage');
-  Configure(wsSunrise); Tracks[wtGlow]^.Value:=0; A:=Render(0);
-  for J:=0 to Scene.Height div 2-1 do for I:=0 to Scene.Width-1 do
-    Check(Abs(A[J*Scene.Width+I].A-A[(Scene.Height-1-J)*Scene.Width+I].A)<=1,'Sun was clipped by a horizon');
-  Tracks[wtProgress]^.Value:=0; A:=Render(0); Tracks[wtProgress]^.Value:=100; B:=Render(0);
-  Check(not Same(A,B),'Sun progress has no effect');
-  Configure(wsSunsetSky); Tracks[wtProgress]^.Value:=0; A:=Render(0);
-  Tracks[wtProgress]^.Value:=100; B:=Render(0); Check(not Same(A,B),'Sky progress has no effect');
-  Configure(wsTwinklingStars); Tracks[wtSpeed]^.Value:=0; A:=Render(-2); B:=Render(3);
-  Check(Same(A,B),'Zero speed is not stationary');
-  Tracks[wtSeed]^.Value:=18; D:=Render(-2); Check(not Same(A,D),'Seed does not affect stars'); Tracks[wtSeed]^.Value:=17;
-  Configure(wsSun); Tracks[wtSize]^.Value:=93.7; A:=Render(0); B:=Render(2);
-  Check(Abs(Tracks[wtSize]^.Value-93.7)<1E-8,'Rendering reset a user adjustment');
+  Scene.Width:=540; Scene.Height:=960;
+  ConfigureWeather(wpRainbow);
+  Radius:=SceneTracks[stRainbowRadius]^.Value;
+  CenterY:=Scene.Height/2+SceneTracks[stRainbowY]^.Value;
+  Check((Radius<Scene.Width/2) and (CenterY-Radius>0) and (CenterY<Scene.Height),
+    'Rainbow preset is clipped in a vertical scene');
+  Scene.Width:=960; Scene.Height:=540;
+  ConfigureWeather(wpRainbow);
+  A:=Render(1.25);
+  SceneTracks[stRainbowTransparency]^.Value:=100;
+  Check(not Same(A,Render(1.25)),'Rainbow preset has no visible rainbow');
+
+  ConfigureWeather(wpAurora);
+  A:=Render(1.25);
+  SceneTracks[stAurora]^.Value:=0;
+  Check(not Same(A,Render(1.25)),'Aurora preset has no visible aurora');
+  ConfigureWeather(wpAurora);
+  SceneTracks[stStars]^.Value:=0;
+  A:=Render(1.25); B:=Render(2.25);
+  Check(not Same(A,B),'Aurora does not move');
+  Check(Same(A,Render(1.25)),'Aurora depends on playback history');
+
+  ConfigureWeather(wpClear);
+  Check((SceneTracks[stSunStrength]^.Value=100) and (SceneTracks[stHeatHaze]^.Value=0)
+    and (SceneTracks[stMirage]^.Value=0),'Clear weather gained summer settings');
+  ConfigureWeather(wpMidsummer);
+  Check((SceneTracks[stSunStrength]^.Value>100) and (SceneTracks[stHeatHaze]^.Value>0)
+    and (SceneTracks[stMirage]^.Value>0),'Midsummer did not apply strong sun and refraction');
+  SceneTracks[stWindSpeed]^.Value:=0;
+  A:=Render(1.25); B:=Render(2.25);
+  Check(not Same(A,B),'Midsummer refraction does not animate without wind');
+  Check(Same(A,Render(1.25)),'Midsummer refraction depends on playback history');
+  SceneTracks[stHeatHaze]^.Value:=0;
+  SceneTracks[stMirage]^.Value:=0;
+  Unrefracted:=Render(1.25);
+  Check(not Same(A,Unrefracted),'Midsummer refraction is not visible');
+  Check(CompareMem(@A[0],@Unrefracted[0],(Scene.Height div 5)*Scene.Width*SizeOf(TPIXEL_RGBA)),
+    'Midsummer refraction affected the top of the image');
+  Check(Same(Unrefracted,Render(2.25)),'Midsummer remained animated after refraction was disabled');
+  SceneTracks[stSunStrength]^.Value:=100;
+  Check(MeanLight(Unrefracted)>MeanLight(Render(1.25)),'Midsummer sun did not brighten its surroundings');
+
+  IsolateWeather;
+  SceneTracks[stSunTransparency]^.Value:=0;
+  SceneTracks[stSunStrength]^.Value:=100;
+  A:=Render(1.25);
+  SceneTracks[stSunStrength]^.Value:=50;
+  B:=Render(1.25);
+  Check((AlphaSum(B)>0) and (AlphaSum(B)<AlphaSum(A)),'Sun strength cannot be reduced');
+  SceneTracks[stSunStrength]^.Value:=0;
+  Check(Coverage(Render(1.25))=0,'Sun strength zero did not hide the sun');
+  SceneTracks[stSunStrength]^.Value:=200;
+  SceneTracks[stSunTransparency]^.Value:=100;
+  Check(Coverage(Render(1.25))=0,'High sun strength ignored transparency');
+  Writeln('PASS: framed rainbow, animated aurora, stronger midsummer sun and heat shimmer');
+end;
+
+procedure RunHostContractTests;
+var A,B: TPixels; I,J,Before: Integer; OtherSession,MainSession: Pointer;
+begin
+  IsolateWeather;
+  SceneTracks[stSunTransparency]^.Value:=0;
+  SceneTracks[stSunX]^.Value:=0;
+  SceneTracks[stSunY]^.Value:=0;
+  SceneTracks[stSunSize]^.Value:=93.7;
+  A:=Render(0);
+  Check(SceneTracks[stSunSize]^.Value=93.7,'Rendering reset a sun adjustment');
+  for J:=0 to Scene.Height div 2-1 do
+    for I:=0 to Scene.Width-1 do
+      Check(Abs(A[J*Scene.Width+I].A-A[(Scene.Height-1-J)*Scene.Width+I].A)<=1,
+        'Sun was clipped by a horizon');
+
   Obj.Width:=Scene.Width; Obj.Height:=Scene.Height; Video.GetImageData:=GetImage;
   SetLength(HostInput,Scene.Width*Scene.Height);
-  for I:=0 to High(HostInput) do
-  begin HostInput[I].R:=I mod 251; HostInput[I].G:=(I div 7) mod 251;
-    HostInput[I].B:=83; HostInput[I].A:=I mod 256 end;
-  Tracks[wtStrength]^.Value:=0; A:=Render(1); Check(Same(A,HostInput),'Zero strength modified RGBA');
-  Tracks[wtStrength]^.Value:=100; A:=Render(1);
-  Check(CompareMem(@A[0],@HostInput[0],SizeOf(TPIXEL_RGBA)),'Sun changed pixels outside support');
-  for I:=0 to High(A) do Check(A[I].A>=HostInput[I].A,'Overlay reduced input alpha');
-  SavePNG(A,'image_overlay.png');
-  HostInput:=nil; Obj.Width:=0; Obj.Height:=0; Video.GetImageData:=nil;
-  Configure(wsRain); A:=Render(-1.25); MainSession:=Video.UserData; OtherSession:=Table^.Func_Create(3456);
+  try
+    for I:=0 to High(HostInput) do
+    begin
+      HostInput[I].R:=I mod 251; HostInput[I].G:=(I div 7) mod 251;
+      HostInput[I].B:=83; HostInput[I].A:=I mod 256;
+    end;
+    A:=Render(1);
+    Check(CompareMem(@A[0],@HostInput[0],SizeOf(TPIXEL_RGBA)),'Sun changed pixels outside support');
+    for I:=0 to High(A) do Check(A[I].A>=HostInput[I].A,'Overlay reduced input alpha');
+    SavePNG(A,'image_overlay.png');
+  finally
+    HostInput:=nil; Obj.Width:=0; Obj.Height:=0; Video.GetImageData:=nil;
+  end;
+
+  ConfigureWeather(wpRain);
+  A:=Render(-1.25); MainSession:=Video.UserData;
+  OtherSession:=Table^.Func_Create(3456);
   Check(OtherSession<>nil,'Second instance creation failed');
   try
-    Video.UserData:=OtherSession; B:=Render(23.5);
-    Table^.Func_Destroy(3456,OtherSession); OtherSession:=nil;
+    Video.UserData:=OtherSession;
+    B:=Render(23.5);
+    Check(not Same(A,B),'Rain animation is static in a new instance');
   finally
-    if OtherSession<>nil then Table^.Func_Destroy(3456,OtherSession);
     Video.UserData:=MainSession;
+    Table^.Func_Destroy(3456,OtherSession);
   end;
-  B:=Render(-1.25); Check(Same(A,B),'Second instance changed original render state');
-  Configure(wsWhiteCloud); Tracks[wtSpeed]^.Value:=2000;
-  A:=Render(1E9); B:=Render(-1E9); Check((Length(A)>0) and (Length(B)>0),'Long-time rendering failed');
-  Tracks[wtSize]^.Value:=NaN; A:=Render(0); Check(Coverage(A)=0,'Non-finite size was not sanitized');
-  Writeln('PASS: 44 presets, reverse seek, animation, duration, phase, full sun, progress, seed, edits, RGBA, instances');
+  B:=Render(-1.25);
+  Check(Same(A,B),'Second instance changed original render state');
+  IsolateWeather;
+  SceneTracks[stOvercast]^.Value:=35; SceneTracks[stWindSpeed]^.Value:=100;
+  A:=Render(1E9); B:=Render(-1E9);
+  Check((Length(A)>0) and (Length(B)>0),'Long-time cloud rendering failed');
+  IsolateWeather;
+  SceneTracks[stSunTransparency]^.Value:=0; SceneTracks[stSunSize]^.Value:=NaN;
+  Check(Coverage(Render(0))=0,'Non-finite size was not sanitized');
+
   Before:=SetCount; Scene.Width:=0; Scene.Height:=0;
   Check(Table^.Func_Proc_Video(@Video)=0,'Invalid dimensions accepted');
   Check(SetCount=Before,'Invalid dimensions wrote an image');
@@ -638,6 +641,7 @@ begin
   Check(Table^.Func_Proc_Video(@Video)=0,'Pixel limit not enforced');
   Scene.Width:=960; Scene.Height:=540;
   Check(Table^.Func_Proc_Video(nil)=0,'Nil video accepted');
+  Writeln('PASS: full sun, RGBA overlay, instance isolation, long times and input validation');
 end;
 
 procedure RunProfile;
@@ -646,7 +650,7 @@ const Names: array[0..9] of string = ('sunny','sky','sun','cloud_static','cloud_
 var K,I,J: Integer; Watch: TStopwatch; V: array[0..4] of Double; Temp,First: Double;
   CSV: TStringList; Pixels: TPixels;
 begin
-  Tracks[wtSeed]^.Value:=17; Scene.Width:=1920; Scene.Height:=1080;
+  SeedTrack^.Value:=17; Scene.Width:=1920; Scene.Height:=1080;
   CSV:=TStringList.Create;
   try
     CSV.Add('component,width,height,frames,median_ms,min_ms,max_ms,first_ms');
@@ -683,32 +687,15 @@ begin
 end;
 
 procedure RunBenchmark;
-const Styles: array[0..9] of TWeatherStyle = (wsSun,wsSunlight,wsRays,wsFullMoon,
-  wsBlueSky,wsTwinklingStars,wsWhiteCloud,wsRain,wsSnow,wsDoubleRainbow);
-  ScenePresets: array[0..7] of TWeatherScenePreset = (wpSunny,wpClear,wpCloudy,wpRain,wpDownpour,wpBlizzard,wpNight,wpFog);
-var Style: TWeatherStyle; Preset: TWeatherScenePreset; I,J: Integer; Watch: TStopwatch; Values: array[0..4] of Double;
+const ScenePresets: array[0..8] of TWeatherScenePreset =
+  (wpSunny,wpClear,wpCloudy,wpRain,wpDownpour,wpBlizzard,wpNight,wpFog,wpMidsummer);
+var Preset: TWeatherScenePreset; I,J: Integer; Watch: TStopwatch; Values: array[0..4] of Double;
   Temp,FirstMs: Double; CSV: TStringList; Pixels: TPixels; MainSession,ColdSession: Pointer;
 begin
   Scene.Width:=1920; Scene.Height:=1080;
   CSV:=TStringList.Create;
   try
-    CSV.Add('name,width,height,warmup,frames,median_ms,min_ms,max_ms');
-    for Style in Styles do
-    begin
-      Configure(Style); Pixels:=Render(1.25);
-      for I:=0 to High(Values) do
-      begin
-        Watch:=TStopwatch.StartNew; Pixels:=Render(1.25+I/30); Watch.Stop;
-        Values[I]:=Watch.Elapsed.TotalMilliseconds;
-      end;
-      for I:=0 to High(Values)-1 do for J:=I+1 to High(Values) do
-        if Values[I]>Values[J] then begin Temp:=Values[I]; Values[I]:=Values[J]; Values[J]:=Temp end;
-      CSV.Add(Format('%s,1920,1080,1,5,%.3f,%.3f,%.3f',
-        [string(WEATHER_STYLE_NAMES[Style]),Values[2],Values[0],Values[4]],TFormatSettings.Invariant));
-      Check(Length(Pixels)=Scene.Width*Scene.Height,'Benchmark output size mismatch');
-    end;
-    CSV.SaveToFile(ImageDirectory+'benchmark1080.csv',TEncoding.UTF8);
-    CSV.Clear; CSV.Add('name,width,height,warmup,frames,median_ms,min_ms,max_ms,first_ms');
+    CSV.Add('name,width,height,warmup,frames,median_ms,min_ms,max_ms,first_ms');
     MainSession:=Video.UserData; ColdSession:=Table^.Func_Create(2345);
     Check(ColdSession<>nil,'Benchmark session creation failed');
     Video.UserData:=ColdSession;
@@ -784,9 +771,9 @@ begin
           RunTwilightTests;
           RunSolarGlowTests;
           RunWeatherDetailTests;
-          RunTests;
-          Video.UserData:=Session;
-          Configure(wsRain);
+          RunNewPresetTests;
+          RunHostContractTests;
+          ConfigureWeather(wpRain);
           Check(Coverage(Render(-1.25))>0,'Original instance no longer works');
           if (ParamCount=3) and (ParamStr(3)='--benchmark') then RunBenchmark;
         end;

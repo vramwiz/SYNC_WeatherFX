@@ -2,11 +2,18 @@
 
 ## プロジェクトの前提
 
-- フォルダーは `D:\DelphiProg\MyApp\SYNC_WeatherFX`。Delphi プロジェクト名は `SYNC_WeatherFX`、グループは `SYNC`、日本語プラグイン名は `天気演出`。
+- 現在の作業フォルダーは `V:\DelphiProg\SYNC_WeatherFX`。Delphi プロジェクト名は `SYNC_WeatherFX`、グループは `SYNC`、日本語プラグイン名は `天気演出`。
 - コピー元は `D:\DelphiProg\MyApp\SYNC_AquaFX`。必要最小限の共通基盤と作業規則を引き継ぐ。
 - 本番は `SYNC_WeatherFX.dproj` / `SYNC_WeatherFX.auf2` の1つ。単独版・補助プラグイン・別プラグイン用プロジェクトを追加しない。
-- 現在は統合天気を既定にし、新規配置で「晴れ」を表示する。14種類の天気プリセットは「設定を反映」で現在の各値へ一括適用する。時刻・曇り具合・雨雪・風、太陽・月・虹、その他の現象を独立して調整できる。従来の44スタイルは個別演出モードに残す。
+- 新規配置は「晴れ」。17種類の天気プリセットを「設定を反映」で一括適用し、各現象は折りたたみグループから独立して調整する。
 - 現在の機能は `README.md`、仕様は `docs/SPECIFICATION.md` を参照する。AquaFX 固有の仕様と過去の検査記録は持ち込まない。
+
+## プリセットへの一本化・虹・オーロラ・真夏（2026-11-23）
+
+- 「スタイル」「描画方式」と「個別演出（従来）」の登録を廃止し、描画は天気設定の一本にした。従来14プリセットの選択値と統合天気の保存項目名を維持し、末尾に「虹」「オーロラ」「真夏」を追加した。「設定を反映」は40数値と2チェックを対象に保存し、シードを維持する。旧版で個別演出を使った箇所は新しい項目で設定し直す。
+- 虹は午後の空へシーンの縦横に合わせて配置する。オーロラは星のある夜空に描く。太陽の強さは0～200%、標準は100%。真夏は13時・太陽175%・陽炎60・蜃気楼18で、下部に時間変化するゆらぎを出す。快晴は太陽100%・ゆらぎ0。確認画像は `Sample/weather_overview.png`。
+- Delphi 37.0 の MSBuild /t:Rebuild で Win64 Debug・Release とも警告0・エラー0。AviUtl2が標準パスの旧AUF2を使用中だったため、DCC_ExeOutputをコマンドラインで検査フォルダーへ指定した。プロジェクト設定は変更していない。本番AUF2の検査は両構成で通過し、41画像が一致。旧統合描画37画像は従来の参照ハッシュと一致した。ログは `Win64/PresetVerification`、画像の参照ハッシュは `Tests/Baselines/render_images.json`。
+- 検査済みReleaseを `C:\ProgramData\aviutl2\Plugin\SYNC_WeatherFX\SYNC_WeatherFX.auf2` へ配置し、読み込みと初期画像の一致を確認した。1,741,824バイト、SHA-256は `D52FB34E13C25A91FA4CBCC5DB42300C47D01416527654714444EDAC47FFCA8F`。ロード中の旧ファイルはTEMPへ退避し、起動中のAviUtl2はそのまま保持した。IDE・AviUtl2の画面操作、AUP2・setup・公開カタログの更新は行っていない。
 
 ## v1.0.0の配布準備（2026-11-18）
 
@@ -65,12 +72,12 @@ cmd /c 'call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat" && 
 
 - `SYNC_WeatherFX.dpr`: DLL の初期化・終了・最低対応バージョン・エクスポート。
 - `Source/Plugin/Filter/SYNC_WeatherFX_FilterPlugin.pas`: 「天気演出」/「SYNC」の登録、エフェクトごとの描画資源、ホスト画像の入出力。
-- `Source/Plugin/Filter/WeatherFX_Parameters.pas`: 単一のスタイルセレクタ、設定ボタン、共通標準項目。描画中は値を書き換えない。
-- `Source/Common/WeatherFX_Settings.pas`: 44スタイルの系統と初期値、標準項目の範囲。
-- `Source/Common/WeatherFX_SceneSettings.pas`: 統合型の35数値項目、14天気プリセット、新規配置の晴れ初期値。
+- `Source/Plugin/Filter/WeatherFX_Parameters.pas`: 天気プリセット、設定反映ボタン、折りたたみ項目。描画中は値を書き換えない。
+- `Source/Common/WeatherFX_Settings.pas`: 各描画レイヤーで再利用する描画設定と内部初期値。
+- `Source/Common/WeatherFX_SceneSettings.pas`: 40数値項目、17天気プリセット、新規配置の晴れ初期値。
 - `Source/Common/WeatherFX_SceneRenderer.pas`: 24時間周期の空・雲と独立した各現象の合成。プリセット番号は描画に使わない。
 - `Source/Common/WeatherFX_Atmosphere.pas`: 雷・霧・オーロラ・風の流線、陽炎・蜃気楼の屈折。
-- `Source/Common/WeatherFX_Renderer.pas`: フレーム描画の振り分けと入力検証。
+- `Source/Common/WeatherFX_Renderer.pas`: フレーム描画の開始と入力検証。
 - `Source/Common/WeatherFX_Celestial.pas`: 太陽・月・光線・空・虹。
 - `Source/Common/WeatherFX_Clouds.pas`: 連続ノイズによる雲の輪郭・濃淡。
 - `Source/Common/WeatherFX_Particles.pas`: 雨・雪・星・流れ星の時刻評価。

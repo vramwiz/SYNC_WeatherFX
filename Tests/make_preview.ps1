@@ -1,24 +1,15 @@
 ﻿param(
     [string]$ImageDirectory,
     [string]$OutputPath,
-    [switch]$AllStyles,
-    [switch]$WeatherPresets
+    [switch]$WeatherPresets # 従来のプリセット一覧の呼び出しと互換。
 )
 
 # 本番AUF2が出力したPNGを市松背景へ合成する。素材やAI画像は使用しない。
 $ErrorActionPreference = 'Stop'
-if (-not $ImageDirectory) {
-    $relativeImages = if ($WeatherPresets) { '..\Win64\Integrated\ReleaseImages' } else { '..\Win64\Stage1\ReleaseImages' }
-    $ImageDirectory = Join-Path $PSScriptRoot $relativeImages
-}
-if (-not $OutputPath) {
-    $relativeOutput = if ($WeatherPresets) { '..\Sample\weather_overview.png' } else { '..\Sample\stage1_overview.png' }
-    $OutputPath = Join-Path $PSScriptRoot $relativeOutput
-}
+if (-not $ImageDirectory) { $ImageDirectory = Join-Path $PSScriptRoot '..\Win64\Verification\Images' }
+if (-not $OutputPath) { $OutputPath = Join-Path $PSScriptRoot '..\Sample\weather_overview.png' }
 Add-Type -AssemblyName System.Drawing
-$csvName = if ($WeatherPresets) { 'weather_presets.csv' } else { 'presets.csv' }
-$rows = @(Import-Csv -LiteralPath (Join-Path $ImageDirectory $csvName) -Encoding utf8)
-if (-not ($AllStyles -or $WeatherPresets)) { $rows = @($rows | Where-Object { [int]$_.style -in @(0,2,5,8,10,16,22,25,32,36,39,42) }) }
+$rows = @(Import-Csv -LiteralPath (Join-Path $ImageDirectory 'weather_presets.csv') -Encoding utf8)
 $columns = 4
 $cellWidth = 320
 $imageHeight = 180
@@ -44,7 +35,7 @@ try {
                 $graphics.FillRectangle($brush,$left+$x,$top+$y,20,20)
             }
         }
-        $imageName = if ($WeatherPresets) { 'weather_{0:00}.png' -f [int]$row.style } else { '{0:00}.png' -f [int]$row.style }
+        $imageName = 'weather_{0:00}.png' -f [int]$row.style
         $image = [System.Drawing.Image]::FromFile((Join-Path $ImageDirectory $imageName))
         try { $graphics.DrawImage($image,[System.Drawing.Rectangle]::new($left,$top,$cellWidth,$imageHeight)) }
         finally { $image.Dispose() }

@@ -21,8 +21,8 @@ implementation
 
 uses
   System.SysUtils, System.SyncObjs, Winapi.Windows,
-  PluginFilterTable, WeatherFX_Settings, WeatherFX_Parameters,
-  WeatherFX_Renderer, WeatherFX_Raster, WeatherFX_SceneSettings;
+  PluginFilterTable, WeatherFX_Parameters, WeatherFX_Renderer, WeatherFX_Raster,
+  WeatherFX_Settings;
 
 const
   EFFECT_NAME = '天気演出';
@@ -55,7 +55,7 @@ destructor TWeatherSession.Destroy;
 begin FRenderer.Free; FLock.Free; inherited end;
 
 function TWeatherSession.Render(Video: PFILTER_PROC_VIDEO): Byte;
-var Width,Height: Integer; S: TWeatherSettings;
+var Width,Height: Integer;
 begin
   Result:=0;
   if not Assigned(Video^.SetImageData) then Exit;
@@ -75,13 +75,7 @@ begin
       SetLength(FInput,Width*Height);
       Video^.GetImageData(@FInput[0]);
     end else FInput:=nil;
-    if ReadWeatherRenderMode=wmIntegrated then
-      FRenderer.RenderIntegrated(FInput,Width,Height,Video^.Object_^.Time,ReadWeatherSceneSettings,FOutput)
-    else
-    begin
-      S:=ReadWeatherFXSettings;
-      FRenderer.Render(FInput,Width,Height,Video^.Object_^.Time,S,FOutput);
-    end;
+    FRenderer.Render(FInput,Width,Height,Video^.Object_^.Time,ReadWeatherSceneSettings,FOutput);
     if Length(FOutput)<>Width*Height then Exit;
     Video^.SetImageData(@FOutput[0],Width,Height);
     Result:=1;

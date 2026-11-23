@@ -10,7 +10,7 @@ uses WeatherFX_Settings, WeatherFX_Raster;
 
 // Canvasの現在画像へ合成する。時刻は秒、進行状態は設定の時間軸を使用する。
 procedure RenderCelestial(Canvas: TWeatherRaster; const S: TWeatherSettings; Time: Double);
-// 統合型の太陽は高輝度の中心と周辺光を描く。月の表面処理と個別演出の互換経路は維持する。
+// 太陽の中心と周辺光を現在画像へ合成する。wtGlowが100を超えると光の広がりも増す。
 procedure RenderSunLight(Canvas: TWeatherRaster; const S: TWeatherSettings; Time: Double);
 // 朝夕の低い太陽の光。現在のX/Yへ追従し、背景色を残して局所的に明るくする。
 procedure RenderSolarAtmosphere(C: TWeatherRaster; SunX,SunY,Diameter,Strength: Double);
@@ -30,7 +30,7 @@ uses System.Math, WeatherFX_Math;
 
 procedure RenderBody(C: TWeatherRaster; const S: TWeatherSettings; Time: Double; Emissive: Boolean);
 var X,Y,L,R,T,B,Seed,I: Integer;
-  Radius,Glow,Extent,NX,NY,D,Z,Light,Texture,A,Phase,LX,LZ,CA,SA,U,V,
+  Radius,Glow,HaloScale,Extent,NX,NY,D,Z,Light,Texture,A,Phase,LX,LZ,CA,SA,U,V,
   CrX,CrY,CrR,CrD,Progress: Double;
   Col,BodyColor,HaloColor: TWeatherRGB;
 begin
@@ -39,6 +39,7 @@ begin
   if (S.Family=wfMoon) and (S.Values[wtShape]<=0) then Exit;
   Seed:=Round(S.Values[wtSeed]); Glow:=S.Values[wtGlow]/100;
   Extent:=Radius*(1+Glow*3)+S.Values[wtBlur]+2;
+  HaloScale:=Max(1,Glow);
   if Emissive then Extent:=Radius*(1+Glow*6)+S.Values[wtBlur]+2;
   L:=Max(0,Floor(C.OriginX-Extent)); R:=Min(C.Width-1,Ceil(C.OriginX+Extent));
   T:=Max(0,Floor(C.OriginY-Extent)); B:=Min(C.Height-1,Ceil(C.OriginY+Extent));
@@ -62,7 +63,7 @@ begin
     begin
       A:=Glow*0.30*Exp(-Max(0,D-1)*4/Max(0.05,Glow));
       if Emissive then
-        A:=Glow*(0.80*Exp(-Max(0,D-1)*3.6)+0.28*Exp(-Max(0,D-1)*0.60));
+        A:=Glow*(0.80*Exp(-Max(0,D-1)*3.6)+0.28*Exp(-Max(0,D-1)*0.60/HaloScale));
       if S.Family=wfMoon then A:=A*Phase;
       if Emissive then C.Blend(X,Y,HaloColor,A) else C.Blend(X,Y,BodyColor,A);
     end;
